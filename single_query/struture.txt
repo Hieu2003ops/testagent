@@ -1,0 +1,6 @@
+your_project/
+├── logs.json               # Log agent cần đánh giá
+├── prompt_template.txt     # Prompt để LLM đánh giá (chứa {query}, ...)
+├── criteria_config.json    # Ghi chú + trọng số từng tiêu chí
+├── evaluate_agent.py       # Script chạy đánh giá và xuất kết quả CSV
+├── evaluation_results.csv  # Kết quả đầu ra

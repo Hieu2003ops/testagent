@@ -1,0 +1,11 @@
+[
+    {
+        "query":  "Hey bro , LLMs là gì?",
+        "tool_chain_first": ["qa"],
+        "tool_loop_second": ["qa"],
+        "final_answer": [
+            "**Answer:** Các LLM (Mô hình ngôn ngữ lớn) có nhiều ứng dụng khác nhau, bao gồm tạo văn bản, dịch ngôn ngữ và trả lời câu hỏi. Một khía cạnh đáng chú ý của LLM là khả năng học hỏi từ lượng lớn dữ liệu văn bản, cho phép chúng hiểu được các sắc thái của ngôn ngữ và tạo ra văn bản mạch lạc.",
+            "**Answer:** Mô hình ngôn ngữ lớn (LLM) cũng có những hạn chế và thách thức, chẳng hạn như đòi hỏi lượng lớn tài nguyên tính toán, dễ bị ảnh hưởng bởi sự thiên vị trong dữ liệu huấn luyện và gặp khó khăn với kiến thức thông thường hoặc kiến thức về thế giới không được nêu rõ ràng trong văn bản."
+            ]
+        }
+    ]

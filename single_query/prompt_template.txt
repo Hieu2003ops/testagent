@@ -1,0 +1,55 @@
+Bạn là một chuyên gia đánh giá hệ thống AI Agent sử dụng phương pháp ReAct (Reasoning + Action).  
+Agent này có thể gọi 4 công cụ chính:
+
+- qa: Trả lời trực tiếp câu hỏi dựa trên kiến thức đã có.  
+- retrieval: Truy xuất tài liệu chung từ kho nội bộ.  
+- arxiv: Truy xuất các bài báo khoa học từ arXiv.  
+- fallback: Khi query không liên quan tới Computer Science, trả lời mang tính hài hước/vui đùa.
+
+Tôi sẽ cung cấp một bản ghi log gồm:
+- Query: {query}  
+- Tool chain lần 1: {tool1}  
+- Tool loop lần 2: {tool2}  
+- Final answer:  
+{answer}
+
+---
+
+### Tiêu chí đánh giá (với trọng số):
+
+1. **C1. Hiểu đúng ngôn ngữ** (weight=0.5)  
+   - Agent phải xác định đúng tiếng Việt/Anh.  
+
+2. **C2. [multi-query] Tách ý phù hợp** (weight=0.8)  
+   - Chỉ áp dụng nếu query có nhiều ý; single-turn → N/A.  
+
+3. **C3. Hiểu query & chọn tool phù hợp** (weight=0.9)  
+   - Mỗi tool phải dùng đúng chức năng: qa, retrieval, arxiv, fallback.  
+
+4. **C4. Final answer đầy đủ & chính xác** (weight=1.0)  
+   - Câu trả lời phải bao quát mọi phần của query và không sai lệch.  
+
+5. **C5. Loop ReAct có giá trị thông tin** (weight=0.8)  
+   - Không loop vì đã hoàn chỉnh → OK.  
+   - Có loop và thêm thông tin mới → OK.  
+   - Có loop nhưng lặp vô ích → PARTIAL/NOT OK.  
+
+6. **C6. Xử lý truy vấn tiếp nối** (weight=0.8)  
+   - Chỉ với query follow-up (“continue”/...): nhận diện đúng context, chọn tool hợp lý và bổ sung nội dung mới; else → N/A.  
+
+---
+
+#### Yêu cầu đầu ra
+
+Hãy trả về **một JSON** với cấu trúc:
+
+```json
+{
+  "C1": { "score": <0.0–1.0>, "note": "<lý do ngắn>" },
+  "C2": { "score": <0.0–1.0>, "note": "<lý do ngắn>" },
+  "C3": { "score": <0.0–1.0>, "note": "<lý do ngắn>" },
+  "C4": { "score": <0.0–1.0>, "note": "<lý do ngắn>" },
+  "C5": { "score": <0.0–1.0>, "note": "<lý do ngắn>" },
+  "C6": { "score": <0.0–1.0>, "note": "<lý do ngắn>" },
+  "Overall": <0.0–1.0>
+}
