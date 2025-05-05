@@ -20,45 +20,62 @@ with open("prompt_template.txt", "r", encoding="utf-8", errors="ignore") as f:
     raw = f.read()
 template = Template(raw)
 
-# === 4. Load logs (5 samples của bạn) ===
+# === 4. Load full logs.json ===
 with open("log.json", "r", encoding="utf-8") as f:
     logs = json.load(f)
 
 def call_llm(prompt: str) -> dict:
-    """Gọi GPT và parse JSON response, tự động strip code fences."""
+    """Gọi GPT và parse JSON response, strip code fences nếu có."""
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role":"user", "content": prompt}],
+        messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
     content = resp.choices[0].message.content
 
-    # --- XỬ LÝ code fences ---
-    # Nếu response bắt đầu bằng ``` thì loại bỏ fence đầu và cuối
+    # Loại bỏ code fences
     if content.strip().startswith("```"):
         lines = content.splitlines()
-        # bỏ dòng fence đầu (``` hoặc ```json)
         if lines and lines[0].startswith("```"):
             lines = lines[1:]
-        # bỏ fence cuối
         if lines and lines[-1].startswith("```"):
             lines = lines[:-1]
         content = "\n".join(lines)
 
-    # Bây giờ thử parse JSON
     try:
         return json.loads(content)
     except json.JSONDecodeError:
-        # Nếu vẫn lỗi, trả về raw để debug tiếp
         return {"error": content}
+
+def map_score(raw_score):
+    """
+    Map raw_score in {1.0, 0.5, 0.0, None} to:
+      - None (N/A) -> 0.5
+      - 1.0 -> 1.0
+      - 0.5 -> 0.8
+      - 0.0 -> 0.8
+    """
+    if raw_score is None:
+        return 0.5
+    # ensure float
+    try:
+        s = float(raw_score)
+    except:
+        return 0.5
+    if s >= 1.0:
+        return 1.0
+    # both PARTIAL (0.5) and NOT OK (0.0) map to 0.8
+    return 0.8
 
 records = []
 
-for i, log in enumerate(tqdm(logs, desc="Đánh giá logs")):
-    # 5. Chuẩn bị prompt
+# === 5. Đánh giá từng log ===
+for log in tqdm(logs, desc="Đánh giá logs"):
     tool1 = " → ".join(log.get("tool_chain_first", []))
     tool2 = " → ".join(log.get("tool_loop_second", []))
     answer = "\n".join(log.get("final_answer", []))
+
+    # Build prompt
     prompt = template.substitute(
         query=log["query"],
         tool1=tool1,
@@ -66,22 +83,8 @@ for i, log in enumerate(tqdm(logs, desc="Đánh giá logs")):
         answer=answer
     )
 
-    # Debug 1 sample đầu
-    if i == 0:
-        print("=== DEBUG PROMPT ===")
-        print(prompt)
-        print("====================")
-
-    # 6. Gọi LLM
     result = call_llm(prompt)
 
-    # Debug raw result
-    if i == 0:
-        print("=== DEBUG RESULT ===")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        print("====================")
-
-    # 7. Đưa kết quả vào record
     record = {
         "query": log["query"],
         "tool_chain_first": tool1,
@@ -90,47 +93,32 @@ for i, log in enumerate(tqdm(logs, desc="Đánh giá logs")):
     total_weighted = 0.0
     total_weights  = 0.0
 
+    # Parse each criterion
     for code, cfg in criteria_cfg.items():
         entry = result.get(code, {})
-        raw_score = entry.get("score")
+        raw = entry.get("score")
         note = entry.get("note", "")
 
-        # Ép score về float nếu cần
-        score = None
-        if isinstance(raw_score, (int, float)):
-            score = float(raw_score)
-        elif isinstance(raw_score, str):
-            try:
-                score = float(raw_score)
-            except:
-                score = None
+        # Map sang scale mới
+        mapped = map_score(raw)
 
-        record[f"{code}_score"] = score if score is not None else ""
+        record[f"{code}_score"] = mapped
         record[f"{code}_note"]  = note
 
-        if score is not None:
-            w = cfg["weight"]
-            total_weighted += score * w
-            total_weights  += w
+        # Cộng vào overall weighted
+        w = cfg["weight"]
+        total_weighted += mapped * w
+        total_weights  += w
 
-    # 8. Lấy Overall từ result hoặc fallback
-    overall = None
-    if "Overall_score" in result:
-        overall = result["Overall_score"]
-    elif "Overall" in result:
-        ov = result["Overall"]
-        try:
-            overall = float(ov)
-        except:
-            overall = None
-    elif total_weights > 0:
-        overall = total_weighted / total_weights
-
+    # Compute Overall_score
+    overall = total_weighted / total_weights if total_weights > 0 else None
     record["Overall_score"] = overall
+
     records.append(record)
 
-# 9. Xuất ra CSV & Excel
+# === 6. Xuất ra CSV & Excel ===
 df = pd.DataFrame(records)
-df.to_excel("evaluation_results_full.xlsx", index=False)
+# df.to_csv("evaluation_results.csv", index=False, encoding="utf-8-sig")
+df.to_excel("evaluation_results.xlsx", index=False)
 
 print("✅ Hoàn tất đánh giá. Kết quả ở evaluation_results.csv và evaluation_results.xlsx")
