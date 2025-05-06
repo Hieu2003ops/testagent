@@ -49,22 +49,21 @@ def call_llm(prompt: str) -> dict:
 
 def map_score(raw_score):
     """
-    Map raw_score in {1.0, 0.5, 0.0, None} to:
-      - None (N/A) -> 0.5
+    Giữ nguyên điểm LLM chấm:
       - 1.0 -> 1.0
-      - 0.5 -> 0.8
-      - 0.0 -> 0.8
+      - 0.8 -> 0.8
+      - 0.5 -> 0.5
+      - 0.0 -> 0.0
+    Nếu LLM không trả score (None hoặc parse lỗi) -> baseline 0.8
     """
-    if raw_score is None:
-        return 0.5
-    # ensure float
     try:
         s = float(raw_score)
+        # chỉ chấp nhận 1.0, 0.8, 0.5, 0.0
+        if s in (1.0, 0.8, 0.5, 0.0):
+            return s
     except:
-        return 0.5
-    if s >= 1.0:
-        return 1.0
-    # both PARTIAL (0.5) and NOT OK (0.0) map to 0.8
+        pass
+    # fallback baseline
     return 0.8
 
 records = []
@@ -99,13 +98,12 @@ for log in tqdm(logs, desc="Đánh giá logs"):
         raw = entry.get("score")
         note = entry.get("note", "")
 
-        # Map sang scale mới
         mapped = map_score(raw)
 
         record[f"{code}_score"] = mapped
         record[f"{code}_note"]  = note
 
-        # Cộng vào overall weighted
+        # Weighted sum
         w = cfg["weight"]
         total_weighted += mapped * w
         total_weights  += w
@@ -118,7 +116,6 @@ for log in tqdm(logs, desc="Đánh giá logs"):
 
 # === 6. Xuất ra CSV & Excel ===
 df = pd.DataFrame(records)
-# df.to_csv("evaluation_results.csv", index=False, encoding="utf-8-sig")
-df.to_excel("evaluation_results.xlsx", index=False)
+df.to_excel("evaluation_results_full.xlsx", index=False)
 
-print("✅ Hoàn tất đánh giá. Kết quả ở evaluation_results.csv và evaluation_results.xlsx")
+print("✅ Hoàn tất đánh giá. Kết quả lưu ở evaluation_results_full.xlsx")
