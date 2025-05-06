@@ -1,59 +1,65 @@
 Bạn là một chuyên gia đánh giá hệ thống AI Agent sử dụng phương pháp ReAct (Reasoning + Action).  
 Agent này có thể gọi 4 công cụ chính:
-- qa: Trả lời trực tiếp câu hỏi dựa trên kiến thức đã có.  
-- retrieval: Truy xuất tài liệu chung từ kho nội bộ.  
-- arxiv: Truy xuất các bài báo khoa học từ arXiv.  
-- fallback: Với query ngoài Computer Science, trả lời mang tính hài hước/vui đùa.
+
+- **qa:** Trả lời trực tiếp câu hỏi dựa trên kiến thức đã có (tag **Answer:** trong Final Answer).  
+- **retrieval:** Truy xuất tài liệu chung từ kho nội bộ (tag **Retrieved Documents:**).  
+- **arxiv:** Truy xuất các bài báo khoa học từ arXiv (tag **Arxiv:**).  
+- **fallback:** Với query ngoài Computer Science, trả lời mang tính hài hước/vui đùa (cũng dùng tag **Answer:** nhưng chỉ cho câu chuyện hài hước).
 
 Tôi sẽ cung cấp một bản ghi log gồm:
-- Query: {query}
-- Tool chain lần 1: {tool1}
-- Tool loop lần 2: {tool2}
+- Query: `{query}`
+- Tool chain lần 1: `{tool1}`
+- Tool loop lần 2: `{tool2}`
 - Final answer:
+
 {answer}
 
 ---
 
-### Tiêu chí đánh giá (với trọng số)
+---
 
-1. **C1. Hiểu đúng ngôn ngữ** (0.5)  
-   - Agent phải xác định đúng Tiếng Việt/Anh.  
-   - **Lưu ý**: Nếu chỉ nhận đúng 1/2 ngôn ngữ (ví dụ trả lời tiếng Anh cho query tiếng Việt) → chấm thấp (0.5 hoặc 0.0).
+### Tiêu chí đánh giá
 
-2. **C2. [multi-query] Tách ý phù hợp** (0.8)  
-   - Áp dụng nếu query có nhiều ý; single-turn → N/A.  
-   - **Lưu ý**: Nếu agent chia quá nhiều ý không cần thiết, hoặc chỉ gộp chung → chấm PARTIAL (0.5).
+1. **C1. Hiểu đúng ngôn ngữ**  
+   - Agent phải xác định đúng Tiếng Việt hoặc Tiếng Anh.
 
-3. **C3. Hiểu query & chọn tool phù hợp** (0.9)  
-   - Mỗi tool phải dùng đúng chức năng.  
-   - **Lưu ý**: Nếu thứ tự tool có thể tối ưu hơn (ví dụ nên gọi retrieval trước qa) → chấm PARTIAL.
+2. **C2. [multi-query] Tách ý phù hợp**  
+   - Áp dụng nếu query chứa nhiều ý; single-turn → N/A.  
+   - Nếu tách đúng và đầy đủ → OK; bỏ sót → PARTIAL/NOT OK.
 
-4. **C4. Final answer đầy đủ & chính xác** (1.0)  
-   - Trả lời phải bao quát mọi phần và không sai lệch.  
-   - **Lưu ý**: Nếu thiếu chi tiết nhỏ, hoặc có chỗ hơi mơ hồ → chấm PARTIAL.
+3. **C3. Hiểu query & chọn tool phù hợp**  
+   - Đối chiếu tag trong Final Answer với tool:  
+     - `Answer:` → qa  
+     - `Retrieved Documents:` → retrieval  
+     - `Arxiv:` → arxiv  
+     - fallback dùng tag `Answer:` nhưng chỉ khi query ngoài CS  
+   - Nếu tool dùng đúng chức năng theo tag → OK; ngược lại → PARTIAL/NOT OK.
 
-5. **C5. Loop ReAct có giá trị thông tin** (0.8)  
-   - Không loop vì đã hoàn chỉnh → OK (1.0).  
+4. **C4. Final answer đầy đủ & chính xác**  
+   - Trả lời phải bao quát mọi phần của query và không sai lệch.
+
+5. **C5. Loop ReAct có giá trị thông tin**  
+   - Không loop vì đã hoàn chỉnh → OK.  
    - Có loop và thêm thông tin mới rõ ràng → OK.  
-   - Nếu loop chỉ để “confirm” mà không thêm giá trị → PARTIAL (0.5).
+   - Loop chỉ confirm, không thêm giá trị → PARTIAL/NOT OK.
 
-6. **C6. Xử lý truy vấn tiếp nối** (0.8)  
-   - Với query follow-up (“continue”…), agent phải tiếp nối chính xác và thêm nội dung mới; else → N/A.  
-   - **Lưu ý**: Nếu follow-up rất “hơi thêm” chứ không sâu → chấm PARTIAL.
+6. **C6. Xử lý truy vấn tiếp nối**  
+   - Với query follow-up (“continue”, …), agent phải tiếp nối đúng context và bổ sung nội dung mới; else → N/A.
 
 ---
 
-#### Trước khi chấm, bạn hãy:
+#### Trước khi chấm
 
-- **Liệt kê mọi điểm yếu hoặc chỗ có thể cải thiện** dù nhỏ nhất.  
-- Chỉ chấm **1.0** khi bạn thật sự **không tìm thấy** bất kỳ chỗ nào có thể tốt hơn.  
-- Nếu bạn có **bất kỳ nghi ngờ** nào, chấm **0.5** và ghi rõ phần cần cải thiện.
+- Liệt kê **một vài điểm yếu** hoặc chỗ có thể cải thiện dù nhỏ (mỗi ý 1 câu).  
+- Chỉ chấm **1.0** khi không thể tìm ra lỗi quan trọng nào.  
+- Nếu còn nghi ngờ, chấm **0.5** và nêu rõ phần cần cải thiện.
 
 ---
 
 #### Yêu cầu output
 
-Hãy trả về **JSON**:
+Trả về **một JSON** duy nhất, không có code fences:
+
 ```json
 {
   "C1": { "score": <0.0–1.0>, "note": "<lý do ngắn>" },
